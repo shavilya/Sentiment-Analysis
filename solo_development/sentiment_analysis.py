@@ -1,4 +1,4 @@
-# IMPORTING LIBRARIES 
+# Importing Libraries
 
 import pickle
 import pandas as pd
@@ -24,6 +24,14 @@ project_name = "Sentiment Analysis with Insights"
 
 def open_browser():
     return webbrowser.open("http://127.0.0.1:8050/")
+import streamlit as st
+import plotly.graph_objects as go
+from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
+
+# DECLARING GLOBAL VARIABLES
+project_name = "Sentiment Analysis with Insights"
+
+# DECLARING MY FUNCTIONS
 
 def load_model():
     global pickle_model
@@ -149,4 +157,69 @@ def main():
 if __name__ == '__main__':
     main()
 
+    global df
+
+    df = pd.read_csv("balanced_reviews.csv")
+    
+    with open("../pickle_model.pkl", 'rb') as file:
+        pickle_model = pickle.load(file)
+    with open("../feature.pkl", 'rb') as voc:
+        vocab = pickle.load(voc)
+
+def check_review(review_text):
+    transformer = TfidfTransformer()
+    loaded_vec = CountVectorizer(decode_error="replace", vocabulary=vocab)
+    review_text = transformer.fit_transform(loaded_vec.fit_transform([review_text]))
+    return pickle_model.predict(review_text)
+
+def main():
+    st.set_page_config(page_title=project_name, layout="centered")
+    st.title(project_name)
+    
+    load_model()
+    
+    # Cleaning Data
+    df_clean = df.dropna()
+    df_clean = df_clean[df_clean['overall'] != 3]
+    df_clean['Positivity'] = np.where(df_clean['overall'] > 3, 1, 0)
+    
+    # Pie Chart
+    st.subheader("Overall Sentiment Distribution")
+    labels = ['Positive Reviews', 'Negative Reviews']
+    values = [len(df_clean[df_clean.Positivity == 1]), len(df_clean[df_clean.Positivity == 0])]
+    fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.write("---")
+    
+    # Textarea input
+    st.subheader("Check Sentiment of Your Own Review")
+    user_input = st.text_area("Enter your review:", "My daughter loves these shoes")
+    
+    if st.button("Submit Review Text"):
+        result = check_review(user_input)
+        if result[0] == 1:
+            st.success("Positive Review ✅")
+        elif result[0] == 0:
+            st.error("Negative Review ❌")
+        else:
+            st.warning("Unknown Sentiment ⚠️")
+    
+    st.write("---")
+    
+    # Dropdown to select existing reviews
+    st.subheader("Or Select a Sample Review from Data")
+    selected_review = st.selectbox("Choose a Review:", df_clean['reviewText'].dropna().tolist())
+    
+    if st.button("Submit Selected Review"):
+        result = check_review(selected_review)
+        if result[0] == 1:
+            st.success("Positive Review ✅")
+        elif result[0] == 0:
+            st.error("Negative Review ❌")
+        else:
+            st.warning("Unknown Sentiment ⚠️")
+    
+if __name__ == "__main__":
+    main()
 
